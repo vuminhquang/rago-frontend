@@ -7,7 +7,7 @@
   const icon = (id,extra="") => `<svg class="icon ${extra}" aria-hidden="true"><use href="#i-${id}"></use></svg>`;
   const esc = v => String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const nf = n => new Intl.NumberFormat("en-US").format(n);
-  const routes = {overview:"Overview",devices:"Devices",folders:"Folders","add-device":"+ Add your Device",search:"Local Search",connections:"MCP Connections",activity:"Activity",settings:"Settings",help:"Help"};
+  const routes = {overview:"Overview",devices:"Devices",online:"Remote Devices",folders:"Folders","add-device":"Add your Device",search:"Local Search",connections:"MCP Connections",activity:"Activity",settings:"Settings",help:"Help"};
   const navMain = [["overview","home"],["connections","link"],["settings","settings"]];
   const navDevices = [["devices","monitor"],["folders","folder"],["add-device","plus"]];
   const href = name => "#/" + name;
@@ -34,6 +34,8 @@
   let overlay=null, popup=null, rowMenu=-1, drawer=false, pendingPath="";
   let devicesExpanded=true,setupStep=1,setupPackagePath="";
   let localSession=null, heartbeatTimer=0, searchResults=null, searchQuery="",activeOperation=false, pendingGrant=null;
+  let remoteDevices=null, remoteSignedOut=false, remoteBusy=false, remoteError="", remoteCredential=null;
+  const onlineEndpoint="/api/online/device";
   const localEndpoint="http://127.0.0.1:47743";
   let toastTimer=0;
   const drafts=()=>{
@@ -401,13 +403,13 @@
     const command=localLaunchCommand();
     const steps=["Choose connection","Run the Agent","Pair device"];
     return `<main class="page-content setup-content" id="main-content">
-      <header class="setup-intro"><h1>+ Add your Device</h1><p>Connect a RAGO Agent in a few simple steps. Your documents stay on your device.</p></header>
+      <header class="setup-intro"><h1>Add your Device</h1><p>Connect a RAGO Agent in a few simple steps. Your documents stay on your device.</p></header>
       <ol class="setup-steps" aria-label="Device setup progress">${steps.map((step,i)=>`<li class="${setupStep===i+1?"current":setupStep>i+1?"complete":""}" ${setupStep===i+1?'aria-current="step"':""}><span>${i+1}</span>${step}</li>`).join("")}</ol>
       ${setupStep===1?`<section class="panel setup-panel">
         <h2>How would you like to connect?</h2>
         <div class="setup-choices">
-          <div class="setup-choice selected"><span class="setup-choice-icon">${icon("monitor")}</span><div><strong>Local — Recommended</strong><span class="setup-badge ready">No account needed</span><p>Search and index on this device. Local MCP works without Siglet or relay.</p></div></div>
-          <div class="setup-choice unavailable" aria-disabled="true"><span class="setup-choice-icon">${icon("link")}</span><div><strong>Remote — Optional</strong><span class="setup-badge pending">Coming soon</span><p>Remote access will require Siglet sign-in. The relay is not released yet.</p></div></div>
+          <div class="setup-choice selected"><span class="setup-choice-icon">${icon("monitor")}</span><div><strong>Local</strong><span class="setup-badge ready">No account needed</span><p>Search and index on this device. Local MCP works without Siglet or relay.<br><b class="setup-url">${localEndpoint}</b></p></div></div>
+          <div class="setup-choice"><span class="setup-choice-icon">${icon("link")}</span><div><strong>Remote</strong><a class="setup-badge pending" href="#/online">Register with Siglet</a><p>Use your local RAGO Agent from anywhere through<br><b class="setup-url">https://rago.siglet.app/mcp</b></p></div></div>
         </div>
         <p class="setup-note">Local mode never requires an account. Your files and indexes stay on this device.</p>
         <div class="setup-actions"><button type="button" class="button primary" data-do="setup-next">Continue with Local ${icon("arrow-right","small")}</button><a href="#/devices" class="button secondary">Back to Devices</a></div>
@@ -435,6 +437,86 @@
       </section>`}
     </main>`;
   }
+  function onlinePage() {
+    const disabled=remoteBusy?" disabled":"";
+    const credential=remoteCredential;
+    return `<main class="page-content setup-content" id="main-content">
+      <header class="setup-intro"><h1>Remote Devices</h1><p>Use your RAGO Agent from anywhere through <code>https://rago.siglet.app/mcp</code>.</p></header>
+      <p role="alert" class="remote-error">${esc(remoteError)}</p>
+      ${location.origin!=="https://rago.siglet.app"||preview?'<section class="panel setup-panel"><a href="https://rago.siglet.app/#/online">Open RAGO Remote Devices</a></section>':remoteSignedOut?`<section class="panel setup-panel"><h2>Connect with Siglet</h2><p>Sign in to register a device and manage access for your MCP host.</p><a class="button primary" href="/login/siglet">Register or sign in with Siglet</a></section>`:`
+      <section class="panel setup-panel remote-panel">
+        <div class="setup-actions">
+          <button class="button primary" data-do="remote-enroll"${disabled}>Register device</button>
+          <button class="button secondary" data-do="remote-refresh"${disabled}>Refresh status</button>
+        </div>
+        ${remoteBusy?'<p role="status">Working…</p>':remoteDevices?.length===0?'<p>No remote devices registered.</p>':""}
+        ${credential?`<section class="remote-credential" aria-label="New credential">
+          <h2>${credential.kind==="device"?"Start the Agent":"Configure your MCP host"}</h2>
+          ${credential.kind==="device"?`<p>Run this command on the device, then paste the credential into the running Agent and press Enter. Use a private terminal as the credential may be visible while pasting.</p><pre><code>npx --yes @human-agent/rago@0.4.0 --remote ${esc(credential.id)}</code></pre>`:`<p>Set this credential as the Bearer token for <code>https://rago.siglet.app/mcp</code> in your MCP host.</p>`}
+          <p>Copy this credential now. RAGO only shows it here once.</p>
+          <div class="setup-actions"><button class="button primary" data-do="remote-copy">Copy credential</button><button class="button secondary" data-do="remote-dismiss">I’ve saved it</button></div>
+        </section>`:""}
+        ${remoteDevices?.map(device=>`<article class="remote-device">
+          <h2>Device <code>${esc(device.device_id)}</code></h2>
+          <p><strong>${device.connected?"Connected":"Offline"}</strong></p>
+          ${device.host_grant?`<p>Host <strong>${esc(device.host_grant.host)}</strong> has access to <code>${esc(device.host_grant.path)}</code> on <strong>${esc(device.host_grant.device_name)}</strong>.</p>
+            <button class="button secondary" data-do="remote-revoke-host" data-id="${esc(device.device_id)}"${disabled}>Revoke host access</button>`:'<p>No host access granted.</p>'}
+          <form class="remote-grant" data-remote-grant data-id="${esc(device.device_id)}">
+            <label>Host name<input name="host" maxlength="128" required placeholder="My MCP client"></label>
+            <label>Agent device name<input name="device_name" maxlength="255" required placeholder="WORKSTATION"></label>
+            <label>Absolute folder path<input name="path" maxlength="4096" required placeholder="C:\\Documents"></label>
+            <p>Use the exact name and folder path the host will request. Approve the folder in the local Agent first.</p>
+            <button class="button primary"${disabled}>${device.host_grant?"Replace host grant":"Grant host access"}</button>
+          </form>
+          <button class="button secondary" data-do="remote-revoke-device" data-id="${esc(device.device_id)}"${disabled}>Remove device</button>
+        </article>`).join("")??""}
+        <form class="remote-grant" data-remote-track>
+          <label>Existing device ID<input name="id" maxlength="22" pattern="[A-Za-z0-9_\\-]{22}" required></label>
+          <button class="button secondary"${disabled}>Add existing device to this list</button>
+        </form>
+      </section>`}
+    </main>`;
+  }
+
+  async function onlineRequest(path="", method="GET", data) {
+    const response=await fetch(onlineEndpoint+path,{
+      method, credentials:"same-origin", cache:"no-store",
+      headers:data?{"Content-Type":"application/json"}:undefined,
+      body:data?JSON.stringify(data):undefined
+    });
+    if(response.status===401){
+      remoteSignedOut=true;
+      remoteDevices=null;
+      remoteCredential=null;
+      throw new Error("Sign in with Siglet to continue.");
+    }
+    if(!response.ok)throw new Error({
+      400:"Check the device ID and host grant fields.",
+      403:"The request was denied.",
+      404:"This device is unavailable in your Siglet account.",
+      409:"Device limit reached. Remove a device before registering another.",
+    }[response.status]||"RAGO Online is temporarily unavailable.");
+    return response.status===204?null:response.json();
+  }
+
+  async function remoteWork(task) {
+    if(remoteBusy||preview||location.origin!=="https://rago.siglet.app")return;
+    remoteBusy=true;
+    remoteError="";
+    if(route()==="online")render();
+    try {
+      if(task)await task();
+      remoteDevices=(await onlineRequest()).devices;
+      remoteSignedOut=false;
+    }catch(error){
+      remoteError=error.message||"Could not reach RAGO Online.";
+    }finally{
+      remoteBusy=false;
+      if(route()==="online")render();
+      else remoteCredential=null;
+    }
+  }
+
   function devices() {
     const realDevice=!preview?localSession?.device:null;
     const shownDevices=realDevice?[realDevice]:demoDevices;
@@ -445,6 +527,7 @@
       <section class="devices-intro">
         <span class="devices-title-icon" aria-hidden="true">${icon("monitor")}</span>
         <div><h1>Your Devices</h1><p>RAGO Agents provide controlled access to folders on their own device.</p></div>
+        <a class="button secondary" href="#/online">Remote Devices</a>
         <a class="button primary devices-add-link" href="#/add-device">${icon("plus","small")} Add your Device</a>
       </section>
       <div class="devices-layout">
@@ -566,7 +649,7 @@
     app.innerHTML=`<div class="app-shell${drawer?" drawer-open":""}">
       <div class="mobile-shade" data-do="close-drawer"></div>${sidebar(page)}
       <div class="main-shell">${topbar(page)}
-        ${page==="overview"?overview():page==="folders"?folders():page==="devices"?devices():page==="add-device"?addDevice():page==="search"?searchPage():page==="connections"&&localSession&&!preview?mcpPage():placeholder(page)}
+        ${page==="overview"?overview():page==="folders"?folders():page==="devices"?devices():page==="add-device"?addDevice():page==="online"?onlinePage():page==="search"?searchPage():page==="connections"&&localSession&&!preview?mcpPage():placeholder(page)}
       </div>${modalHTML()}
     </div>`;
     if(page==="folders") {
@@ -756,6 +839,27 @@
     if(hint)hint.textContent=command?"Command ready to copy.":"Enter an absolute Windows or UNC path ending in .tgz.";
   });
   document.addEventListener("submit",e=>{
+    const form=e.target;
+    if(form.matches?.("[data-remote-grant], [data-remote-track]")){
+      e.preventDefault();
+      const fields=Object.fromEntries(new FormData(form));
+      if(form.hasAttribute("data-remote-track")){
+        remoteWork(()=>onlineRequest("/"+encodeURIComponent(fields.id)+"/track","POST"));
+      }else if(!isAbsolute(fields.path)){
+        remoteError="Enter an absolute Windows, UNC or POSIX folder path.";
+        form.closest("main").querySelector(".remote-error").textContent=remoteError;
+      }else{
+        const id=form.dataset.id;
+        const current=remoteDevices?.find(device=>device.device_id===id);
+        if(current?.host_grant&&!window.confirm("Replace the current host grant and invalidate its credential?"))return;
+        if(remoteCredential&&!window.confirm("Discard the credential currently shown?"))return;
+        remoteWork(async()=>{
+          const result=await onlineRequest("/"+encodeURIComponent(id)+"/host","POST",fields);
+          remoteCredential={id,kind:"host",token:result.host_token};
+        });
+      }
+      return;
+    }
     if(e.target.id==="local-connect-form"){e.preventDefault();connectLocal();return;}
     if(e.target.id==="local-search-form"){e.preventDefault();queryLocal();return;}
     if(e.target.id!=="folder-form")return;
@@ -780,6 +884,31 @@
     if(doIt==="backdrop" && e.target!==el)return;
     if(doIt==="backdrop"||doIt==="close-modal"){overlay=null;render();return;}
     if(doIt==="toggle-devices-group"){devicesExpanded=!devicesExpanded;render();return;}
+    if(doIt==="remote-refresh"){remoteWork();return;}
+    if(doIt==="remote-enroll"){
+      if(remoteCredential&&!window.confirm("Discard the credential currently shown?"))return;
+      remoteWork(async()=>{
+        const result=await onlineRequest("","POST");
+        remoteCredential={id:result.device_id,kind:"device",token:result.device_token};
+      });return;
+    }
+    if(doIt==="remote-copy"){
+      if(!navigator.clipboard){toast("Clipboard unavailable. Allow clipboard access and try again.");return;}
+      if(remoteCredential)navigator.clipboard.writeText(remoteCredential.token)
+        .then(()=>toast("Credential copied. Clear your clipboard after use."))
+        .catch(()=>toast("Clipboard unavailable. Allow clipboard access and try again."));
+      return;
+    }
+    if(doIt==="remote-dismiss"){remoteCredential=null;render();return;}
+    if(doIt==="remote-revoke-host"||doIt==="remote-revoke-device"){
+      const id=el.dataset.id;
+      const host=doIt==="remote-revoke-host";
+      if(!window.confirm(host?"Revoke this host credential?":"Remove this device and revoke its host access?"))return;
+      remoteWork(async()=>{
+        await onlineRequest("/"+encodeURIComponent(id)+(host?"/host":""),"DELETE");
+        if(remoteCredential?.id===id&&(!host||remoteCredential.kind==="host"))remoteCredential=null;
+      });return;
+    }
     if(doIt==="setup-next"){setupStep=Math.min(setupStep+1,3);render();return;}
     if(doIt==="setup-back"){setupStep=Math.max(setupStep-1,1);render();return;}
     if(doIt==="setup-copy"){
@@ -826,7 +955,8 @@
     if(doIt==="docs"){location.hash="#/help";return;}
     if(["folders","activity","connections"].includes(doIt)){location.hash=href(doIt);return;}
   });
-  window.addEventListener("hashchange",()=>{overlay=null;popup=null;rowMenu=-1;drawer=false;if(navDevices.some(([name])=>name===route()))devicesExpanded=true;if(route()==="add-device")setupStep=1;render();window.scrollTo(0,0);});
+  window.addEventListener("hashchange",()=>{overlay=null;popup=null;rowMenu=-1;drawer=false;if(navDevices.some(([name])=>name===route()))devicesExpanded=true;if(route()==="add-device")setupStep=1;if(route()==="online")remoteWork();else remoteCredential=null;render();window.scrollTo(0,0);});
   document.addEventListener("keydown",e=>{if(e.key==="Escape"&&(overlay||popup||drawer||rowMenu>=0)){overlay=null;popup=null;drawer=false;rowMenu=-1;render();}});
   render();
+  if(route()==="online")remoteWork();
 })();

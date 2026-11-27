@@ -831,13 +831,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, [tabindex]:focus-vis
 .setup-panel h2 {margin:0 0 15px;font-size:22px;letter-spacing:-.35px;}
 .setup-panel>p {line-height:1.55;color:#5b6280;}
 .setup-choices {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;}
-.setup-choice {display:flex;gap:13px;padding:22px 18px;min-width:0;border:1px solid #ded9f0;border-radius:13px;background:#f8f7fc;}
+.setup-choice {display:flex;gap:13px;padding:22px 18px;min-width:0;min-height:134px;border:1px solid #ded9f0;border-radius:13px;background:#f8f7fc;}
 .setup-choice.selected {background:#f7f4ff;border:2px solid #6944df;padding:21px 17px;}
-.setup-choice.unavailable {opacity:.72;}
+.setup-choice .setup-url {font-weight:700;color:#343052;overflow-wrap:anywhere;}
 .setup-choice-icon {width:45px;height:45px;display:grid;place-items:center;flex-shrink:0;border-radius:12px;background:#e9e2ff;color:#5b39cd;}
 .setup-choice-icon .icon {width:25px;height:25px;}
 .setup-choice>div {min-width:0;}
-.setup-choice strong {display:block;font-size:17px;margin:2px 0 9px;}
+.setup-choice>div>strong {display:block;font-size:17px;margin:2px 0 9px;}
 .setup-choice p {margin:9px 0 0;color:#5a6080;line-height:1.55;font-size:13px;}
 .setup-badge {display:inline-block;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:650;}
 .setup-badge.ready {background:#ddf4e1;color:#107634;}
@@ -873,3 +873,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, [tabindex]:focus-vis
   .setup-terminal .button {align-self:flex-end;}
   .setup-actions .button {width:100%;}
 }
+
+.remote-panel{display:grid;gap:1rem}
+.remote-device,.remote-credential,.remote-grant{display:grid;gap:.75rem;justify-items:start;min-width:0}
+.remote-device,.remote-credential{padding:1rem;border:1px solid #ded9f1;border-radius:.75rem;overflow-wrap:anywhere}
+.remote-panel h2,.remote-panel p{margin:0}
+.remote-grant label{display:grid;gap:.3rem;width:min(100%,28rem)}
+.remote-grant{width:100%}
+.remote-grant input{width:100%;padding:.5rem .65rem;border:1px solid #aea7c4;border-radius:.4rem;font:inherit}
+.remote-error{color:#a12742}
+.remote-error:empty{display:none}
+.remote-credential pre{margin:0;max-width:100%;white-space:pre-wrap}
