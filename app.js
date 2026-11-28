@@ -35,6 +35,7 @@
   let devicesExpanded=true,setupStep=1;
   let localSession=null, heartbeatTimer=0, searchResults=null, searchQuery="",activeOperation=false, pendingGrant=null;
   let remoteDevices=null, remoteSignedOut=false, remoteBusy=false, remoteError="", remoteCredential=null;
+  let accountSignedIn=false,accountCheck=0;
   const onlineEndpoint="/api/online/device";
   const localEndpoint="http://127.0.0.1:47743";
   let toastTimer=0;
@@ -71,7 +72,7 @@
     </aside>`;
   }
   function topbar(page) {
-    const crumb=page==="online"?`<h1 class="top-title">Remote Devices</h1>`:`<div class="top-title">${routes[page]??"Page not found"}</div>`;
+    const crumb=["online","add-device"].includes(page)?`<h1 class="top-title">${routes[page]}</h1>`:`<div class="top-title">${routes[page]??"Page not found"}</div>`;
     const avatar=icon("user");
     return `<header class="topbar">
       <div class="topbar-left"><button class="mobile-trigger" data-do="drawer" aria-label="Toggle navigation">${icon("menu")}</button>${crumb}</div>
@@ -82,7 +83,7 @@
         <span class="account-divider"></span>
         <button class="account-button" data-do="account-pop" aria-label="Account menu" aria-haspopup="menu">
           <span class="avatar">${avatar}</span>
-          <span class="account-info"><strong>RAGO Workspace</strong></span>
+          <span class="account-info"><strong>${accountSignedIn?"Siglet account":"RAGO Workspace"}</strong><small id="account-status"${accountSignedIn?"":" hidden"}>Signed in</small></span>
           ${icon("chevron-down","down")}
         </button>
       </div>
@@ -95,10 +96,10 @@
     if(popup==="notifications") return `<div class="popover" role="dialog" aria-label="Notifications">
       <h3>Notifications</h3><p>${preview?"Activity shown in this preview is illustrative.":"No live notifications. Backend integration is not configured."}</p><a href="#/activity">View activity</a></div>`;
     if(popup==="account") return `<div class="popover" role="menu" aria-label="Account options">
-      <h3>RAGO Workspace</h3><p>Local mode needs no account. Use Remote Devices to manage your optional Siglet connection.</p>
+      <h3>${accountSignedIn?"Siglet account":"RAGO Workspace"}</h3><p>${accountSignedIn?"Signed in through Siglet. Local mode remains independent of your account.":"Local mode needs no account. Use Remote Devices to manage your optional Siglet connection."}</p>
       <a role="menuitem" href="#/online">Remote Devices</a>
       <a role="menuitem" href="#/settings">Settings</a>
-      ${route()==="online"&&!preview&&remoteDevices!==null&&!remoteSignedOut?`<button type="button" role="menuitem" class="small-action" data-do="remote-logout"${remoteBusy?" disabled":""}>${icon("logout","small")} Sign out of RAGO</button>`:""}</div>`;
+      ${accountSignedIn&&!preview&&location.origin==="https://rago.siglet.app"?`<button type="button" role="menuitem" class="small-action" data-do="remote-logout"${remoteBusy?" disabled":""}>${icon("logout","small")} Sign out of RAGO</button>`:""}</div>`;
     return "";
   }
   function hero() {
@@ -403,7 +404,7 @@
     const command=localLaunchCommand();
     const steps=["Choose connection","Run the Agent","Pair device"];
     return `<main class="page-content setup-content" id="main-content">
-      <header class="setup-intro"><h1>Add your Device</h1><p>Connect a RAGO Agent in a few simple steps. Your documents stay on your device.</p></header>
+      <div class="setup-intro"><p>Connect a RAGO Agent in a few simple steps. Your documents stay on your device.</p></div>
       <ol class="setup-steps" aria-label="Device setup progress">${steps.map((step,i)=>`<li class="${setupStep===i+1?"current":setupStep>i+1?"complete":""}" ${setupStep===i+1?'aria-current="step"':""}><span>${i+1}</span>${step}</li>`).join("")}</ol>
       ${setupStep===1?`<section class="panel setup-panel">
         <h2>How would you like to connect?</h2>
@@ -486,6 +487,33 @@
     </main>`;
   }
 
+  function showAccountState(signedIn) {
+    accountSignedIn=signedIn;
+    const label=document.querySelector(".account-info strong");
+    const status=document.getElementById("account-status");
+    if(label)label.textContent=signedIn?"Siglet account":"RAGO Workspace";
+    if(status)status.hidden=!signedIn;
+    const menu=popup==="account"?document.querySelector('.popover[aria-label="Account options"]'):null;
+    if(menu)menu.outerHTML=renderPopup();
+  }
+
+  async function refreshAccount() {
+    if(preview||location.origin!=="https://rago.siglet.app"||remoteBusy)return;
+    const check=++accountCheck;
+    try {
+      const response=await fetch("/api/online/session",{credentials:"same-origin",cache:"no-store"});
+      const data=response.ok?await response.json():null;
+      if(check!==accountCheck)return;
+      showAccountState(data?.authenticated===true);
+      if(response.status===401){
+        remoteSignedOut=true;remoteDevices=null;remoteCredential=null;
+        if(route()==="online")render();
+      }
+    }catch{
+      if(check===accountCheck)showAccountState(false);
+    }
+  }
+
   async function onlineRequest(path="", method="GET", data) {
     const response=await fetch(onlineEndpoint+path,{
       method, credentials:"same-origin", cache:"no-store",
@@ -493,6 +521,8 @@
       body:data?JSON.stringify(data):undefined
     });
     if(response.status===401){
+      ++accountCheck;
+      showAccountState(false);
       remoteSignedOut=true;
       remoteDevices=null;
       remoteCredential=null;
@@ -516,6 +546,8 @@
       if(task)await task();
       remoteDevices=(await onlineRequest()).devices;
       remoteSignedOut=false;
+      ++accountCheck;
+      showAccountState(true);
     }catch(error){
       remoteError=error.message||"Could not reach RAGO Online.";
       remoteDevices=null;
@@ -527,7 +559,7 @@
   }
 
   async function remoteLogout() {
-    if(remoteBusy||preview||location.origin!=="https://rago.siglet.app"||remoteDevices===null)return;
+    if(remoteBusy||preview||location.origin!=="https://rago.siglet.app"||!accountSignedIn)return;
     remoteBusy=true;
     remoteError="";
     render();
@@ -537,8 +569,11 @@
       remoteDevices=null;
       remoteCredential=null;
       remoteSignedOut=true;
+      ++accountCheck;
+      showAccountState(false);
     }catch(error){
       remoteError=error.message||"Could not sign out.";
+      toast(remoteError);
     }finally{
       remoteBusy=false;
       if(route()==="online")render();
@@ -948,7 +983,7 @@
       navigator.clipboard?.writeText(value).then(()=>toast("Antigravity config copied.")).catch(()=>toast("Select and copy the config manually."));return;}
     if(doIt==="drawer"){drawer=!drawer;render();return;}
     if(doIt==="close-drawer"){drawer=false;render();return;}
-    if(doIt.endsWith("-pop")){const v=doIt.slice(0,-4);popup=popup===v?null:v;render();return;}
+    if(doIt.endsWith("-pop")){const v=doIt.slice(0,-4);popup=popup===v?null:v;render();if(popup==="account")refreshAccount();return;}
     if(doIt==="row-menu"){rowMenu=rowMenu===Number(el.dataset.index)?-1:Number(el.dataset.index);render();return;}
     if(doIt==="save-draft"){
       if(!document.getElementById("draft-ok")?.checked){toast("Please confirm this is a browser-only draft.");return;}
@@ -973,8 +1008,8 @@
     if(doIt==="docs"){location.hash="#/help";return;}
     if(["folders","activity","connections"].includes(doIt)){location.hash=href(doIt);return;}
   });
-  window.addEventListener("hashchange",()=>{overlay=null;popup=null;rowMenu=-1;drawer=false;if(navDevices.some(([name])=>name===route()))devicesExpanded=true;if(route()==="add-device")setupStep=1;if(route()==="online")remoteWork();else remoteCredential=null;render();window.scrollTo(0,0);});
+  window.addEventListener("hashchange",()=>{overlay=null;popup=null;rowMenu=-1;drawer=false;if(navDevices.some(([name])=>name===route()))devicesExpanded=true;if(route()==="add-device")setupStep=1;if(route()==="online")remoteWork();else{remoteCredential=null;refreshAccount();}render();window.scrollTo(0,0);});
   document.addEventListener("keydown",e=>{if(e.key==="Escape"&&(overlay||popup||drawer||rowMenu>=0)){overlay=null;popup=null;drawer=false;rowMenu=-1;render();}});
   render();
-  if(route()==="online")remoteWork();
+  if(route()==="online")remoteWork();else refreshAccount();
 })();
