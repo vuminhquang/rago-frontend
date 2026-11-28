@@ -32,7 +32,7 @@
     ["monitor","Device connected: Workstation-01","Today, 09:14"]
   ];
   let overlay=null, popup=null, rowMenu=-1, drawer=false, pendingPath="";
-  let devicesExpanded=true,setupStep=1,setupPackagePath="";
+  let devicesExpanded=true,setupStep=1;
   let localSession=null, heartbeatTimer=0, searchResults=null, searchQuery="",activeOperation=false, pendingGrant=null;
   let remoteDevices=null, remoteSignedOut=false, remoteBusy=false, remoteError="", remoteCredential=null;
   const onlineEndpoint="/api/online/device";
@@ -95,8 +95,8 @@
     if(popup==="notifications") return `<div class="popover" role="dialog" aria-label="Notifications">
       <h3>Notifications</h3><p>${preview?"Activity shown in this preview is illustrative.":"No live notifications. Backend integration is not configured."}</p><a href="#/activity">View activity</a></div>`;
     if(popup==="account") return `<div class="popover" role="menu" aria-label="Account options">
-      <h3>RAGO Workspace</h3><p>Frontend-only interface. No Siglet session is established by this site.</p>
-      <a role="menuitem" href="https://siglet.app/" rel="noopener noreferrer" target="_blank">Open Siglet Account</a>
+      <h3>RAGO Workspace</h3><p>Local mode needs no account. Use Remote Devices to manage your optional Siglet connection.</p>
+      <a role="menuitem" href="#/online">Remote Devices</a>
       <a role="menuitem" href="#/settings">Settings</a></div>`;
     return "";
   }
@@ -397,8 +397,7 @@
     help:["help","Help","RAGO setup and security.","Local-first knowledge","RAGO indexes on the device. Authorized AI hosts can receive bounded search evidence."],
     "not-found":["info","Page not found","The requested page does not exist.","This page is unavailable","Use Folders to manage sources and view indexing progress, or return to Overview."]
   };
-  const validPackagePath=path=>/^([A-Za-z]:[\\/]|\\\\[^\\/\\s]+\\[^\\/\\s]+\\)[^\u0000-\u001f\"\x60$%!^<>|?*]+\.tgz$/i.test(path);
-  const localLaunchCommand=()=>validPackagePath(setupPackagePath)?'npx --offline --yes --package="'+setupPackagePath+'" rago --require-bundle':"";
+  const localLaunchCommand=()=>"npx --yes @human-agent/rago@0.4.0 --require-bundle";
   function addDevice() {
     const command=localLaunchCommand();
     const steps=["Choose connection","Run the Agent","Pair device"];
@@ -415,14 +414,11 @@
         <div class="setup-actions"><button type="button" class="button primary" data-do="setup-next">Continue with Local ${icon("arrow-right","small")}</button><a href="#/devices" class="button secondary">Back to Devices</a></div>
       </section>`:setupStep===2?`<section class="panel setup-panel">
         <h2>Run the local RAGO Agent</h2>
-        <p>Windows x64 is the only verified npm bundle at present. macOS and Linux packages are not yet released.</p>
-        <div class="setup-platforms"><strong>Windows x64</strong><span>macOS · Not available</span><span>Linux · Not available</span></div>
-        <ol class="setup-instructions"><li>Install Node.js 20 or later to use npm/npx.</li><li>Obtain the local <code>rago-local-win32-x64-0.3.0.tgz</code> bundle.</li><li>Enter the absolute location of that file, then copy and run the command in your terminal.</li></ol>
-        <label class="field-label" for="setup-package-path">Local package path (.tgz)</label>
-        <input class="setup-path-input" id="setup-package-path" type="text" spellcheck="false" autocomplete="off" maxlength="1024" placeholder="C:\\Downloads\\rago-local-win32-x64-0.3.0.tgz" value="${esc(setupPackagePath)}">
-        <p class="setup-field-hint" id="setup-path-hint">${command?"Command ready to copy.":"Enter an absolute Windows or UNC path ending in .tgz."}</p>
-        <div class="setup-terminal"><code id="setup-command">${esc(command||"Enter your package path to generate the command.")}</code><button type="button" class="button small" data-do="setup-copy" ${command?"":"disabled"}>${icon("file","small")} Copy command</button></div>
-        <p class="setup-note">Public npm distribution is pending; this command uses a locally obtained package. No command is copied with a placeholder path.</p>
+        <p>Run RAGO on Windows x64, macOS (Intel or Apple Silicon), or Linux (x64 or ARM64).</p>
+        <div class="setup-platforms"><strong>Windows x64</strong><span>macOS x64 / ARM64</span><span>Linux x64 / ARM64</span></div>
+        <ol class="setup-instructions"><li>Install Node.js 20 or later to use npm/npx.</li><li>Copy and run this command in your terminal.</li><li>Keep the Agent running and use its one-time pairing code.</li></ol>
+        <div class="setup-terminal"><code id="setup-command">${esc(command)}</code><button type="button" class="button small" data-do="setup-copy">${icon("file","small")} Copy command</button></div>
+        <p class="setup-note">The first download requires Internet. Once installed, Local RAG works without an account or relay.</p>
         <div class="setup-actions"><button type="button" class="button primary" data-do="setup-next">I started the Agent ${icon("arrow-right","small")}</button><button type="button" class="button secondary" data-do="setup-back">Back</button></div>
       </section>`:`<section class="panel setup-panel">
         <h2>Pair your local device</h2>
@@ -440,22 +436,24 @@
   function onlinePage() {
     const disabled=remoteBusy?" disabled":"";
     const credential=remoteCredential;
-    return `<main class="page-content setup-content" id="main-content">
-      <header class="setup-intro"><h1>Remote Devices</h1><p>Use your RAGO Agent from anywhere through <code>https://rago.siglet.app/mcp</code>.</p></header>
-      <p role="alert" class="remote-error">${esc(remoteError)}</p>
-      ${location.origin!=="https://rago.siglet.app"||preview?'<section class="panel setup-panel"><a href="https://rago.siglet.app/#/online">Open RAGO Remote Devices</a></section>':remoteSignedOut?`<section class="panel setup-panel"><h2>Connect with Siglet</h2><p>Sign in to register a device and manage access for your MCP host.</p><a class="button primary" href="/login/siglet">Register or sign in with Siglet</a></section>`:`
-      <section class="panel setup-panel remote-panel">
-        <div class="setup-actions">
-          <button class="button primary" data-do="remote-enroll"${disabled}>Register device</button>
-          <button class="button secondary" data-do="remote-refresh"${disabled}>Refresh status</button>
-        </div>
-        ${remoteBusy?'<p role="status">Working…</p>':remoteDevices?.length===0?'<p>No remote devices registered.</p>':""}
-        ${credential?`<section class="remote-credential" aria-label="New credential">
+    const credentialPanel=credential?`<section class="remote-credential" aria-label="New credential">
           <h2>${credential.kind==="device"?"Start the Agent":"Configure your MCP host"}</h2>
           ${credential.kind==="device"?`<p>Run this command on the device, then paste the credential into the running Agent and press Enter. Use a private terminal as the credential may be visible while pasting.</p><pre><code>npx --yes @human-agent/rago@0.4.0 --remote ${esc(credential.id)}</code></pre>`:`<p>Set this credential as the Bearer token for <code>https://rago.siglet.app/mcp</code> in your MCP host.</p>`}
           <p>Copy this credential now. RAGO only shows it here once.</p>
           <div class="setup-actions"><button class="button primary" data-do="remote-copy">Copy credential</button><button class="button secondary" data-do="remote-dismiss">I’ve saved it</button></div>
-        </section>`:""}
+        </section>`:"";
+    return `<main class="page-content setup-content" id="main-content">
+      <header class="setup-intro"><h1>Remote Devices</h1><p>Use your RAGO Agent from anywhere through <code>https://rago.siglet.app/mcp</code>.</p></header>
+      <p role="alert" class="remote-error">${esc(remoteError)}</p>
+      ${location.origin!=="https://rago.siglet.app"||preview?'<section class="panel setup-panel"><a href="https://rago.siglet.app/#/online">Open RAGO Remote Devices</a></section>':remoteSignedOut?`<section class="panel setup-panel"><h2>Connect with Siglet</h2><p>Sign in to register a device and manage access for your MCP host.</p><a class="button primary" href="/login/siglet">Continue with Siglet</a></section>`:remoteDevices===null?`<section class="panel setup-panel"><p role="status">${remoteBusy?"Checking your Siglet session…":"Unable to verify your session."}</p><button class="button secondary" data-do="remote-refresh"${disabled}>Try again</button>${credentialPanel}</section>`:`
+      <section class="panel setup-panel remote-panel">
+        <div class="setup-actions">
+          <button class="button primary" data-do="remote-enroll"${disabled}>Register device</button>
+          <button class="button secondary" data-do="remote-refresh"${disabled}>Refresh status</button>
+          <button class="button secondary" data-do="remote-logout"${disabled}>Sign out of RAGO</button>
+        </div>
+        ${remoteBusy?'<p role="status">Working…</p>':remoteDevices?.length===0?'<p>No remote devices registered.</p>':""}
+        ${credentialPanel}
         ${remoteDevices?.map(device=>`<article class="remote-device">
           <h2>Device <code>${esc(device.device_id)}</code></h2>
           <p><strong>${device.connected?"Connected":"Offline"}</strong></p>
@@ -500,7 +498,7 @@
   }
 
   async function remoteWork(task) {
-    if(remoteBusy||preview||location.origin!=="https://rago.siglet.app")return;
+    if(remoteBusy||preview||location.origin!=="https://rago.siglet.app"||(task&&remoteDevices===null))return;
     remoteBusy=true;
     remoteError="";
     if(route()==="online")render();
@@ -510,10 +508,30 @@
       remoteSignedOut=false;
     }catch(error){
       remoteError=error.message||"Could not reach RAGO Online.";
+      remoteDevices=null;
     }finally{
       remoteBusy=false;
       if(route()==="online")render();
       else remoteCredential=null;
+    }
+  }
+
+  async function remoteLogout() {
+    if(remoteBusy||preview||location.origin!=="https://rago.siglet.app"||remoteDevices===null)return;
+    remoteBusy=true;
+    remoteError="";
+    render();
+    try {
+      const response=await fetch("/logout",{method:"POST",credentials:"same-origin",cache:"no-store"});
+      if(!response.ok)throw new Error("Could not sign out. Try again.");
+      remoteDevices=null;
+      remoteCredential=null;
+      remoteSignedOut=true;
+    }catch(error){
+      remoteError=error.message||"Could not sign out.";
+    }finally{
+      remoteBusy=false;
+      if(route()==="online")render();
     }
   }
 
@@ -827,17 +845,6 @@
      /^\\\\[^\\/\s]+\\[^\\/\s]+(?:\\[^<>|"*?\u0000-\u001f]*)?$/.test(path) ||
      /^\/(?!\/)[^\u0000-\u001f]*$/.test(path));
 
-  document.addEventListener("input",e=>{
-    if(e.target.id!=="setup-package-path")return;
-    setupPackagePath=e.target.value;
-    const command=localLaunchCommand();
-    const code=document.getElementById("setup-command");
-    const copy=document.querySelector('[data-do="setup-copy"]');
-    const hint=document.getElementById("setup-path-hint");
-    if(code)code.textContent=command||"Enter your package path to generate the command.";
-    if(copy)copy.disabled=!command;
-    if(hint)hint.textContent=command?"Command ready to copy.":"Enter an absolute Windows or UNC path ending in .tgz.";
-  });
   document.addEventListener("submit",e=>{
     const form=e.target;
     if(form.matches?.("[data-remote-grant], [data-remote-track]")){
@@ -885,6 +892,7 @@
     if(doIt==="backdrop"||doIt==="close-modal"){overlay=null;render();return;}
     if(doIt==="toggle-devices-group"){devicesExpanded=!devicesExpanded;render();return;}
     if(doIt==="remote-refresh"){remoteWork();return;}
+    if(doIt==="remote-logout"){remoteLogout();return;}
     if(doIt==="remote-enroll"){
       if(remoteCredential&&!window.confirm("Discard the credential currently shown?"))return;
       remoteWork(async()=>{
