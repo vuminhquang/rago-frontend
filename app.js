@@ -97,7 +97,8 @@
     if(popup==="account") return `<div class="popover" role="menu" aria-label="Account options">
       <h3>RAGO Workspace</h3><p>Local mode needs no account. Use Remote Devices to manage your optional Siglet connection.</p>
       <a role="menuitem" href="#/online">Remote Devices</a>
-      <a role="menuitem" href="#/settings">Settings</a></div>`;
+      <a role="menuitem" href="#/settings">Settings</a>
+      ${route()==="online"&&!preview&&remoteDevices!==null&&!remoteSignedOut?`<button type="button" role="menuitem" class="small-action" data-do="remote-logout"${remoteBusy?" disabled":""}>${icon("logout","small")} Sign out of RAGO</button>`:""}</div>`;
     return "";
   }
   function hero() {
@@ -442,18 +443,22 @@
           <p>Copy this credential now. RAGO only shows it here once.</p>
           <div class="setup-actions"><button class="button primary" data-do="remote-copy">Copy credential</button><button class="button secondary" data-do="remote-dismiss">I’ve saved it</button></div>
         </section>`:"";
-    return `<main class="page-content setup-content" id="main-content">
-      <div class="setup-intro"><p>Use your RAGO Agent from anywhere through <code>https://rago.siglet.app/mcp</code>.</p></div>
+    return `<main class="page-content setup-content remote-content" id="main-content">
+      <div class="setup-intro remote-intro"><p>Use your RAGO Agent from anywhere through <strong>https://rago.siglet.app/mcp</strong>.</p></div>
       <p role="alert" class="remote-error">${esc(remoteError)}</p>
       ${location.origin!=="https://rago.siglet.app"||preview?'<section class="panel setup-panel"><a href="https://rago.siglet.app/#/online">Open RAGO Remote Devices</a></section>':remoteSignedOut?`<section class="panel setup-panel"><h2>Connect with Siglet</h2><p>Sign in to register a device and manage access for your MCP host.</p><a class="button primary" href="/login/siglet">Continue with Siglet</a></section>`:remoteDevices===null?`<section class="panel setup-panel"><p role="status">${remoteBusy?"Checking your Siglet session…":"Unable to verify your session."}</p><button class="button secondary" data-do="remote-refresh"${disabled}>Try again</button>${credentialPanel}</section>`:`
-      <section class="panel setup-panel remote-panel">
-        <div class="setup-actions">
-          <button class="button primary" data-do="remote-enroll"${disabled}>Register device</button>
-          <button class="button secondary" data-do="remote-refresh"${disabled}>Refresh status</button>
-          <button class="button secondary" data-do="remote-logout"${disabled}>Sign out of RAGO</button>
+      <section class="panel setup-panel remote-panel" aria-labelledby="remote-list-heading">
+        <div class="remote-toolbar">
+          <div class="remote-heading"><h2 id="remote-list-heading">Your devices</h2><span class="status-pill pending">${remoteDevices.length} ${remoteDevices.length===1?"device":"devices"}</span></div>
+          <div class="remote-toolbar-actions">
+            <button type="button" class="button secondary" data-do="remote-refresh"${disabled}>${icon("refresh","small")} Refresh status</button>
+            <button type="button" class="button primary" data-do="remote-enroll"${disabled}>${icon("plus","small")} Register device</button>
+          </div>
         </div>
-        ${remoteBusy?'<p role="status">Working…</p>':remoteDevices?.length===0?'<p>No remote devices registered.</p>':""}
-        ${credentialPanel}
+        <div class="remote-list">
+          ${remoteBusy?'<p role="status">Working…</p>':""}
+          ${credentialPanel}
+          ${!remoteBusy&&remoteDevices.length===0?`<div class="empty-state remote-empty"><span class="remote-empty-icon">${icon("monitor")}</span><strong>No remote devices registered</strong><p>Register a device to access your local knowledge remotely.</p></div>`:""}
         ${remoteDevices?.map(device=>`<article class="remote-device">
           <h2>Device <code>${esc(device.device_id)}</code></h2>
           <p><strong>${device.connected?"Connected":"Offline"}</strong></p>
@@ -468,9 +473,14 @@
           </form>
           <button class="button secondary" data-do="remote-revoke-device" data-id="${esc(device.device_id)}"${disabled}>Remove device</button>
         </article>`).join("")??""}
-        <form class="remote-grant" data-remote-track>
-          <label>Existing device ID<input name="id" maxlength="22" pattern="[A-Za-z0-9_\\-]{22}" required></label>
-          <button class="button secondary"${disabled}>Add existing device to this list</button>
+        </div>
+      </section>
+      <section class="panel setup-panel remote-track-panel" aria-labelledby="remote-track-heading">
+        <h2 id="remote-track-heading">Add existing device</h2>
+        <p>Enter the ID of a device already registered to your account.</p>
+        <form class="remote-track-form" data-remote-track>
+          <label>Existing device ID<input name="id" maxlength="22" minlength="22" autocomplete="off" spellcheck="false" placeholder="Enter the 22-character ID" pattern="[A-Za-z0-9_\\-]{22}" required></label>
+          <button class="button secondary"${disabled}>Add device</button>
         </form>
       </section>`}
     </main>`;
@@ -892,7 +902,7 @@
     if(doIt==="backdrop"||doIt==="close-modal"){overlay=null;render();return;}
     if(doIt==="toggle-devices-group"){devicesExpanded=!devicesExpanded;render();return;}
     if(doIt==="remote-refresh"){remoteWork();return;}
-    if(doIt==="remote-logout"){remoteLogout();return;}
+    if(doIt==="remote-logout"){popup=null;remoteLogout();return;}
     if(doIt==="remote-enroll"){
       if(remoteCredential&&!window.confirm("Discard the credential currently shown?"))return;
       remoteWork(async()=>{

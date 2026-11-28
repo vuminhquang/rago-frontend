@@ -874,7 +874,34 @@ button:focus-visible, a:focus-visible, input:focus-visible, [tabindex]:focus-vis
   .setup-actions .button {width:100%;}
 }
 
-.remote-panel{display:grid;gap:1rem}
+.remote-content .remote-intro p{font-size:14px}
+.remote-intro strong{color:#343052;overflow-wrap:anywhere}
+.remote-content .remote-panel{padding:0;overflow:hidden}
+.remote-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 24px;border-bottom:1px solid #e1dff1}
+.remote-heading,.remote-toolbar-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.remote-heading h2{font-size:22px;margin:0;letter-spacing:-.35px}
+.remote-heading .status-pill{font-size:12px}
+.remote-list{display:grid;gap:16px;padding:24px}
+.remote-empty{min-height:230px;padding:28px 16px;gap:10px}
+.remote-empty-icon{display:grid;place-items:center;width:70px;height:70px;border-radius:50%;background:#f1edff;margin-bottom:4px}
+.remote-empty-icon .icon{width:36px;height:36px}
+.remote-track-panel{margin-top:20px}
+.remote-track-panel h2{margin-bottom:8px}
+.remote-track-panel>p{font-size:14px;margin:0 0 18px}
+.remote-track-form{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.remote-track-form label{display:grid;gap:7px;flex:1;min-width:min(100%,220px);font-size:13px;font-weight:650}
+.remote-track-form input{width:100%;min-width:0;padding:10px 12px;min-height:40px;border:1px solid #d8d6e8;border-radius:8px;background:#fff;color:inherit;font:inherit;font-weight:400}
+.remote-track-form input:focus{outline:2px solid #b9a8f7;outline-offset:1px}
+.remote-content .remote-track-form .button{min-height:40px}
+@media(max-width:540px){
+  .remote-toolbar{padding:16px 14px;gap:12px}
+  .remote-heading h2{font-size:19px}
+  .remote-toolbar-actions{width:100%}
+  .remote-toolbar-actions .button{flex:1;white-space:nowrap}
+  .remote-list{padding:14px}
+  .remote-empty{min-height:200px;padding:22px 8px}
+  .remote-track-form .button{width:100%}
+}
 .remote-device,.remote-credential,.remote-grant{display:grid;gap:.75rem;justify-items:start;min-width:0}
 .remote-device,.remote-credential{padding:1rem;border:1px solid #ded9f1;border-radius:.75rem;overflow-wrap:anywhere}
 .remote-panel h2,.remote-panel p{margin:0}
