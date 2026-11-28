@@ -416,11 +416,11 @@
         <div class="setup-actions"><button type="button" class="button primary" data-do="setup-next">Continue with Local ${icon("arrow-right","small")}</button><a href="#/devices" class="button secondary">Back to Devices</a></div>
       </section>`:setupStep===2?`<section class="panel setup-panel">
         <h2>Run the local RAGO Agent</h2>
-        <p>Run RAGO on Windows x64, macOS (Intel or Apple Silicon), or Linux (x64 or ARM64).</p>
-        <div class="setup-platforms"><strong>Windows x64</strong><span>macOS x64 / ARM64</span><span>Linux x64 / ARM64</span></div>
-        <ol class="setup-instructions"><li>Install Node.js 20 or later to use npm/npx.</li><li>Copy and run this command in your terminal.</li><li>Keep the Agent running and use its one-time pairing code.</li></ol>
+        <p>One npm command for every supported platform. RAGO automatically selects the native binary for your operating system and CPU.</p>
+        <div class="setup-platforms" aria-label="Supported platforms"><span>Windows x64</span><span>macOS x64 / ARM64</span><span>Linux x64 / ARM64</span></div>
+        <ol class="setup-instructions"><li>Install Node.js 20 or later (includes npm and npx).</li><li>Open a terminal on the device and run the command below. No local package path or manual download is needed.</li><li>Keep RAGO running and use the one-time pairing code printed in the terminal.</li></ol>
         <div class="setup-terminal"><code id="setup-command">${esc(command)}</code><button type="button" class="button small" data-do="setup-copy">${icon("file","small")} Copy command</button></div>
-        <p class="setup-note">The first download requires Internet. Once installed, Local RAG works without an account or relay.</p>
+        <p class="setup-note">Internet is needed for the first npm download. After installation, Local RAG works offline without an account or relay.</p>
         <div class="setup-actions"><button type="button" class="button primary" data-do="setup-next">I started the Agent ${icon("arrow-right","small")}</button><button type="button" class="button secondary" data-do="setup-back">Back</button></div>
       </section>`:`<section class="panel setup-panel">
         <h2>Pair your local device</h2>
