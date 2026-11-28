@@ -590,7 +590,6 @@
       <section class="devices-intro">
         <span class="devices-title-icon" aria-hidden="true">${icon("monitor")}</span>
         <div><h1>Your Devices</h1><p>RAGO Agents provide controlled access to folders on their own device.</p></div>
-        <a class="button secondary" href="#/online">Remote Devices</a>
         <a class="button primary devices-add-link" href="#/add-device">${icon("plus","small")} Add your Device</a>
       </section>
       <div class="devices-layout">
