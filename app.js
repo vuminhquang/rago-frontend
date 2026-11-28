@@ -83,7 +83,7 @@
         <span class="account-divider"></span>
         <button class="account-button" data-do="account-pop" aria-label="Account menu" aria-haspopup="menu">
           <span class="avatar">${avatar}</span>
-          <span class="account-info"><strong>${accountSignedIn?"Siglet account":"RAGO Workspace"}</strong><small id="account-status"${accountSignedIn?"":" hidden"}>Signed in</small></span>
+          <span class="account-info"><strong>${accountSignedIn?"My Account":"RAGO Workspace"}</strong><small id="account-status"${accountSignedIn?"":" hidden"}>Signed in</small></span>
           ${icon("chevron-down","down")}
         </button>
       </div>
@@ -96,7 +96,7 @@
     if(popup==="notifications") return `<div class="popover" role="dialog" aria-label="Notifications">
       <h3>Notifications</h3><p>${preview?"Activity shown in this preview is illustrative.":"No live notifications. Backend integration is not configured."}</p><a href="#/activity">View activity</a></div>`;
     if(popup==="account") return `<div class="popover" role="menu" aria-label="Account options">
-      <h3>${accountSignedIn?"Siglet account":"RAGO Workspace"}</h3><p>${accountSignedIn?"Signed in through Siglet. Local mode remains independent of your account.":"Local mode needs no account. Use Remote Devices to manage your optional Siglet connection."}</p>
+      <h3>${accountSignedIn?"My Account":"RAGO Workspace"}</h3><p>${accountSignedIn?"Signed in through Siglet. Local mode remains independent of your account.":"Local mode needs no account. Use Remote Devices to manage your optional Siglet connection."}</p>
       <a role="menuitem" href="#/online">Remote Devices</a>
       <a role="menuitem" href="#/settings">Settings</a>
       ${accountSignedIn&&!preview&&location.origin==="https://rago.siglet.app"?`<button type="button" role="menuitem" class="small-action" data-do="remote-logout"${remoteBusy?" disabled":""}>${icon("logout","small")} Sign out of RAGO</button>`:""}</div>`;
@@ -491,7 +491,7 @@
     accountSignedIn=signedIn;
     const label=document.querySelector(".account-info strong");
     const status=document.getElementById("account-status");
-    if(label)label.textContent=signedIn?"Siglet account":"RAGO Workspace";
+    if(label)label.textContent=signedIn?"My Account":"RAGO Workspace";
     if(status)status.hidden=!signedIn;
     const menu=popup==="account"?document.querySelector('.popover[aria-label="Account options"]'):null;
     if(menu)menu.outerHTML=renderPopup();
