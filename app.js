@@ -71,7 +71,7 @@
     </aside>`;
   }
   function topbar(page) {
-    const crumb=`<div class="top-title">${routes[page]??"Page not found"}</div>`;
+    const crumb=page==="online"?`<h1 class="top-title">Remote Devices</h1>`:`<div class="top-title">${routes[page]??"Page not found"}</div>`;
     const avatar=icon("user");
     return `<header class="topbar">
       <div class="topbar-left"><button class="mobile-trigger" data-do="drawer" aria-label="Toggle navigation">${icon("menu")}</button>${crumb}</div>
@@ -443,7 +443,7 @@
           <div class="setup-actions"><button class="button primary" data-do="remote-copy">Copy credential</button><button class="button secondary" data-do="remote-dismiss">I’ve saved it</button></div>
         </section>`:"";
     return `<main class="page-content setup-content" id="main-content">
-      <header class="setup-intro"><h1>Remote Devices</h1><p>Use your RAGO Agent from anywhere through <code>https://rago.siglet.app/mcp</code>.</p></header>
+      <div class="setup-intro"><p>Use your RAGO Agent from anywhere through <code>https://rago.siglet.app/mcp</code>.</p></div>
       <p role="alert" class="remote-error">${esc(remoteError)}</p>
       ${location.origin!=="https://rago.siglet.app"||preview?'<section class="panel setup-panel"><a href="https://rago.siglet.app/#/online">Open RAGO Remote Devices</a></section>':remoteSignedOut?`<section class="panel setup-panel"><h2>Connect with Siglet</h2><p>Sign in to register a device and manage access for your MCP host.</p><a class="button primary" href="/login/siglet">Continue with Siglet</a></section>`:remoteDevices===null?`<section class="panel setup-panel"><p role="status">${remoteBusy?"Checking your Siglet session…":"Unable to verify your session."}</p><button class="button secondary" data-do="remote-refresh"${disabled}>Try again</button>${credentialPanel}</section>`:`
       <section class="panel setup-panel remote-panel">

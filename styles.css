@@ -93,7 +93,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, [tabindex]:focus-vis
   padding:0 28px 0 41px;gap:12px; position:relative; z-index:10;
   background:rgba(249,249,253,.87);border-bottom:1px solid #ecebf3;
 }
-.top-title { font-size:29px; font-weight:750; letter-spacing:-.9px; line-height:1; }
+.top-title { margin:0; font-size:29px; font-weight:750; letter-spacing:-.9px; line-height:1; }
 .top-breadcrumbs { display:flex; align-items:center; gap:14px; font-size:17px; }
 .top-breadcrumbs .ancestor { color:#3f4560; }
 .top-breadcrumbs strong { font-size:21px;font-weight:730; }
